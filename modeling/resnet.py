@@ -1,5 +1,5 @@
 from typing import List, Optional
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import tensorflow as tf
 
@@ -112,7 +112,7 @@ class ResNetStageConfig:
 
 @dataclass
 class ResNetConfig:
-    stages: List[ResNetStageConfig] = []
+    stages: List[ResNetStageConfig] = field(default_factory=list)
     num_groups: Optional[int] = None
 
 
