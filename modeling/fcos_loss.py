@@ -7,12 +7,14 @@ class FCOSLoss(tf.keras.losses.Loss):
     def __init__(
         self,
         focal_loss_gamma: int,
+        focal_loss_alpha: float,
         use_giou: bool,
         *args,
         **kwargs
     ):
         super().__init__(*args, **kwargs)
         self.focal_loss_gamma = focal_loss_gamma
+        self.focal_loss_alpha = focal_loss_alpha
         self.use_giou = use_giou
 
     def call(self, y_true, y_pred):
@@ -28,7 +30,7 @@ class FCOSLoss(tf.keras.losses.Loss):
         num_pixels = height * width
 
         focal_loss = FCOSLoss._focal_loss(
-            y_true_class, y_pred_class, self.focal_loss_gamma)
+            y_true_class, y_pred_class, self.focal_loss_gamma, self.focal_loss_alpha)
         centerness_loss = FCOSLoss._centerness_loss(
             y_true_centerness, y_pred_centerness)
         iou_loss = (FCOSLoss._giou if self.use_giou else FCOSLoss._iou)(
@@ -42,11 +44,15 @@ class FCOSLoss(tf.keras.losses.Loss):
         return rtn
 
     @staticmethod
-    def _focal_loss(y_true, y_pred, gamma):
+    def _focal_loss(y_true, y_pred, gamma, alpha):
         loss_true = -y_true * \
-            tf.math.pow(1 - y_pred, gamma) * tf.math.log(y_pred)
-        loss_false = (y_true - 1) * tf.math.pow(y_pred, gamma) * \
-            tf.math.log(1 - y_pred)
+            tf.math.pow(1 - y_pred, gamma) * \
+            tf.math.log(y_pred) * \
+            alpha
+        loss_false = (y_true - 1) * \
+            tf.math.pow(y_pred, gamma) * \
+            tf.math.log(1 - y_pred) * \
+            (1 - alpha)
         return tf.reduce_sum(loss_true + loss_false, axis=-1)
 
     @staticmethod
