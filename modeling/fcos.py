@@ -1,3 +1,4 @@
+from constants import IMAGE_SHAPE
 from .fcos_loss import FCOSLoss
 from .fcos_layers import FeaturePyramid, FCOSHead
 from .resnet import ResNet50, ResNet101, ResNeXt32x8d, ResNeXt64x4d
@@ -20,6 +21,7 @@ class FCOS(tf.keras.Model):
             optimizer=tf.keras.optimizers.SGD(),
             loss=FCOSLoss(2, 0.25, True),
         )
+        fcos.build((*IMAGE_SHAPE, 3))
         return fcos
 
     @staticmethod
