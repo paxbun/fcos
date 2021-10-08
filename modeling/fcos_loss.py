@@ -1,3 +1,5 @@
+from constants import NUM_CLASSES
+
 import tensorflow as tf
 
 
@@ -14,8 +16,44 @@ class FCOSLoss(tf.keras.losses.Loss):
         self.use_giou = use_giou
 
     def call(self, y_true, y_pred):
-        # TODO
-        pass
+        y_true_class, y_true_centerness, y_true_reg = \
+            y_true[:(NUM_CLASSES + 1)], y_true[NUM_CLASSES + 1], y_true[-4:]
+        y_pred_class, y_pred_centerness, y_pred_reg = \
+            y_pred[:(NUM_CLASSES + 1)], y_pred[NUM_CLASSES + 1], y_pred[-4:]
+
+        is_positive = 1 - y_true_class[0]
+        num_positives = tf.reduce_sum(is_positive, [-2, -1])
+
+        height, width = y_true.shape[1:3]
+        num_pixels = height * width
+
+        focal_loss = FCOSLoss._focal_loss(
+            y_true_class, y_pred_class, self.focal_loss_gamma)
+        centerness_loss = FCOSLoss._centerness_loss(
+            y_true_centerness, y_pred_centerness)
+        iou_loss = (FCOSLoss._giou if self.use_giou else FCOSLoss._iou)(
+            y_true_reg, y_pred_reg)
+        iou_loss = iou_loss * is_positive
+        iou_loss = -tf.math.log(iou_loss)
+
+        rtn = focal_loss + centerness_loss + iou_loss
+        rtn = rtn * num_pixels / num_positives
+
+        return rtn
+
+    @staticmethod
+    def _focal_loss(y_true, y_pred, gamma):
+        loss_true = -y_true * \
+            tf.math.pow(1 - y_pred, gamma) * tf.math.log(y_pred)
+        loss_false = (y_true - 1) * tf.math.pow(y_pred, gamma) * \
+            tf.math.log(1 - y_pred)
+        return tf.reduce_sum(loss_true + loss_false, axis=-1)
+
+    @staticmethod
+    def _centerness_loss(y_true, y_pred):
+        loss_true = -y_true * tf.math.log(y_pred)
+        loss_false = (y_true - 1) * tf.math.log(1 - y_pred)
+        return loss_true + loss_false
 
     @staticmethod
     def _giou(y_true, y_pred):
@@ -67,11 +105,3 @@ class FCOSLoss(tf.keras.losses.Loss):
         intersection_area = intersection_height * intersection_width
         union_area = area_true + area_pred - intersection_area
         return intersection_area / union_area
-
-    @staticmethod
-    def _focal_loss(y_true, y_pred, gamma):
-        loss_true = -y_true * \
-            tf.math.pow(1 - y_pred, gamma) * tf.math.log(y_pred)
-        loss_false = (y_true - 1) * tf.math.pow(y_pred, gamma) * \
-            tf.math.log(1 - y_pred)
-        return loss_true + loss_false
