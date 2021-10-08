@@ -1,4 +1,4 @@
-from modeling.fcos_loss import FCOSLoss
+from .fcos_loss import FCOSLoss
 from .fcos_layers import FeaturePyramid, FCOSHead
 from .resnet import ResNet50, ResNet101, ResNeXt32x8d, ResNeXt64x4d
 
