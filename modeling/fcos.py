@@ -21,7 +21,7 @@ class FCOS(tf.keras.Model):
             optimizer=tf.keras.optimizers.SGD(),
             loss=FCOSLoss(2, 0.25, True),
         )
-        fcos.build((*IMAGE_SHAPE, 3))
+        fcos.build((None, *IMAGE_SHAPE, 3))
         return fcos
 
     @staticmethod
@@ -40,11 +40,11 @@ class FCOS(tf.keras.Model):
         **kwargs
     ):
         super(FCOS, self).__init__(*args, **kwargs)
-        self.resnet = FCOS._resnets[resnet]
+        self.resnet = FCOS._resnets[resnet]()
         self.fpn = FeaturePyramid()
         self.head = FCOSHead()
 
     def call(self, inputs):
-        _, C3, C4, C5 = self.resnet(inputs)
-        pyramid = self.fpn([C3, C4, C5])
+        output = self.resnet(inputs)
+        pyramid = self.fpn(output[1:])
         rtn = self.head(pyramid)
