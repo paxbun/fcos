@@ -15,3 +15,15 @@ OUTPUT_SHAPES = [
     OUTPUT_SHAPE_P6,
     OUTPUT_SHAPE_P7
 ]
+
+MAX_DISTS = [
+    (-1, 64),
+    (64, 128),
+    (128, 256),
+    (256, 512),
+    (512, 100000)
+]
+MAX_DISTS = [
+    (x / IMAGE_WIDTH, y / IMAGE_HEIGHT)
+    for x, y in MAX_DISTS
+]
