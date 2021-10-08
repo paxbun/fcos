@@ -11,9 +11,9 @@ class ResNetTop(tf.keras.layers.Layer):
             64, (7, 7), strides=(2, 2), padding="same", use_bias=False)
         self.batch_norm = tf.keras.layers.BatchNormalization()
 
-    def call(self, inputs, training=None):
+    def call(self, inputs):
         x = self.initial_conv(inputs)
-        x = self.batch_norm(inputs)
+        x = self.batch_norm(x)
         return x
 
     def compute_output_shape(self, input_shape: tf.TensorShape) -> tf.TensorShape:
@@ -91,7 +91,7 @@ class ResNetBlock(tf.keras.layers.Layer):
         else:
             return (input_shape[:3], self.out_channels)
 
-    def call(self, inputs, training=None):
+    def call(self, inputs):
         main = inputs
         for layer in self.main_path:
             main = layer(main)
@@ -120,10 +120,11 @@ class ResNetBase(tf.keras.layers.Layer):
     def __init__(self, config: ResNetConfig, *args, **kwargs):
         super(ResNetBase, self).__init__(*args, **kwargs)
         self.top = ResNetTop()
-        self.body = []
+        self.stages = []
         for stage in config.stages:
+            blocks = []
             for idx in range(stage.num_repeats):
-                self.body.append(
+                blocks.append(
                     ResNetBlock(
                         stage.out_channels,
                         idx == 0,
@@ -131,12 +132,14 @@ class ResNetBase(tf.keras.layers.Layer):
                         stage.group_width,
                     )
                 )
+            self.stages.append(blocks)
 
-    def call(self, inputs, downscale=None):
+    def call(self, inputs):
         rtn = []
         out = self.top(inputs)
-        for stage in self.body:
-            out = stage(out)
+        for stage in self.stages:
+            for block in stage:
+                out = block(out)
             rtn.append(out)
         return rtn
 
