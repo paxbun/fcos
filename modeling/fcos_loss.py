@@ -19,9 +19,13 @@ class FCOSLoss(tf.keras.losses.Loss):
 
     def call(self, y_true, y_pred):
         y_true_class, y_true_centerness, y_true_reg = \
-            y_true[:(NUM_CLASSES + 1)], y_true[NUM_CLASSES + 1], y_true[-4:]
+            y_true[:, :, :, :(NUM_CLASSES + 1)], \
+            y_true[:, :, :, NUM_CLASSES + 1], \
+            y_true[:, :, :, -4:]
         y_pred_class, y_pred_centerness, y_pred_reg = \
-            y_pred[:(NUM_CLASSES + 1)], y_pred[NUM_CLASSES + 1], y_pred[-4:]
+            y_pred[:, :, :, :(NUM_CLASSES + 1)], \
+            y_pred[:, :, :, NUM_CLASSES + 1], \
+            y_pred[:, :, :, -4:]
 
         is_positive = 1 - y_true_class[0]
         num_positives = tf.reduce_sum(is_positive, [-2, -1])
@@ -63,27 +67,37 @@ class FCOSLoss(tf.keras.losses.Loss):
 
     @staticmethod
     def _giou(y_true, y_pred):
-        area_true = (y_true[0] + y_true[1]) * (y_true[2] + y_true[3])
-        area_pred = (y_pred[0] + y_pred[1]) * (y_pred[2] + y_pred[3])
+        y_true0, y_true1, y_true2, y_true3 = \
+            y_true[:, :, :, 0], \
+            y_true[:, :, :, 1], \
+            y_true[:, :, :, 2], \
+            y_true[:, :, :, 3]
+        y_pred0, y_pred1, y_pred2, y_pred3 = \
+            y_pred[:, :, :, 0], \
+            y_pred[:, :, :, 1], \
+            y_pred[:, :, :, 2], \
+            y_pred[:, :, :, 3]
+        area_true = (y_true0 + y_true1) * (y_true2 + y_true3)
+        area_pred = (y_pred0 + y_pred1) * (y_pred2 + y_pred3)
         intersection_height = tf.math.minimum(
-            y_true[0], y_pred[0]
+            y_true0, y_pred0
         ) + tf.math.minimum(
-            y_true[1], y_pred[1]
+            y_true1, y_pred1
         )
         intersection_width = tf.math.minimum(
-            y_true[2], y_pred[2]
+            y_true2, y_pred2
         ) + tf.math.minimum(
-            y_true[3], y_pred[3]
+            y_true3, y_pred3
         )
         convex_height = tf.math.maximum(
-            y_true[0], y_pred[0]
+            y_true0, y_pred0
         ) + tf.math.maximum(
-            y_true[1], y_pred[1]
+            y_true1, y_pred1
         )
         convex_width = tf.math.maximum(
-            y_true[2], y_pred[2]
+            y_true2, y_pred2
         ) + tf.math.maximum(
-            y_true[3], y_pred[3]
+            y_true3, y_pred3
         )
         intersection_area = intersection_height * intersection_width
         convex_area = convex_height * convex_width
@@ -96,17 +110,27 @@ class FCOSLoss(tf.keras.losses.Loss):
 
     @staticmethod
     def _iou(y_true, y_pred):
-        area_true = (y_true[0] + y_true[1]) * (y_true[2] + y_true[3])
-        area_pred = (y_pred[0] + y_pred[1]) * (y_pred[2] + y_pred[3])
+        y_true0, y_true1, y_true2, y_true3 = \
+            y_true[:, :, :, 0], \
+            y_true[:, :, :, 1], \
+            y_true[:, :, :, 2], \
+            y_true[:, :, :, 3]
+        y_pred0, y_pred1, y_pred2, y_pred3 = \
+            y_pred[:, :, :, 0], \
+            y_pred[:, :, :, 1], \
+            y_pred[:, :, :, 2], \
+            y_pred[:, :, :, 3]
+        area_true = (y_true0 + y_true1) * (y_true2 + y_true3)
+        area_pred = (y_pred0 + y_pred1) * (y_pred2 + y_pred3)
         intersection_height = tf.math.minimum(
-            y_true[0], y_pred[0]
+            y_true0, y_pred0
         ) + tf.math.minimum(
-            y_true[1], y_pred[1]
+            y_true1, y_pred1
         )
         intersection_width = tf.math.minimum(
-            y_true[2], y_pred[2]
+            y_true2, y_pred2
         ) + tf.math.minimum(
-            y_true[3], y_pred[3]
+            y_true3, y_pred3
         )
         intersection_area = intersection_height * intersection_width
         union_area = area_true + area_pred - intersection_area
