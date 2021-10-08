@@ -35,7 +35,7 @@ class ResNetBlock(tf.keras.layers.Layer):
         self.out_channels = out_channels
         self.downscale = downscale
 
-        assert (num_groups == None) != (group_width == None)
+        assert (num_groups == None) == (group_width == None)
         if num_groups == None:
             self.bottleneck_channels = self.out_channels // 4
         else:
@@ -56,7 +56,7 @@ class ResNetBlock(tf.keras.layers.Layer):
                 (3, 3),
                 padding="same",
                 use_bias=False,
-                num_groups=num_groups,
+                groups=num_groups,
             ),
             tf.keras.layers.BatchNormalization(),
             tf.keras.layers.ReLU(),
@@ -126,7 +126,9 @@ class ResNetBase(tf.keras.layers.Layer):
                 self.body.append(
                     ResNetBlock(
                         stage.out_channels,
-                        idx == 0
+                        idx == 0,
+                        config.num_groups,
+                        stage.group_width,
                     )
                 )
 
@@ -136,7 +138,7 @@ class ResNetBase(tf.keras.layers.Layer):
         for stage in self.body:
             out = stage(out)
             rtn.append(out)
-        return out
+        return rtn
 
     def compute_output_shape(self, input_shape: tf.TensorShape) -> tf.TensorShape:
         rtn = []
@@ -144,6 +146,7 @@ class ResNetBase(tf.keras.layers.Layer):
         for stage in self.body:
             out = stage.compute_output_shape(out)
             rtn.append(out)
+        return rtn
 
 
 class ResNet50(ResNetBase):
