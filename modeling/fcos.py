@@ -24,6 +24,20 @@ class FCOS(tf.keras.Model):
         fcos.build((None, *IMAGE_SHAPE, 3))
         return fcos
 
+    # @staticmethod
+    # def make_functional(resnet: str = "ResNet50"):
+    #     x = input = tf.keras.layers.Input((*IMAGE_SHAPE, 3))
+    #     x = FCOS._resnets[resnet]()(x)
+    #     x = FeaturePyramid()(x[1:])
+    #     x = FCOSHead()(x)
+    #     model = tf.keras.Model(input, x)
+    #     model.compile(
+    #         optimizer=tf.keras.optimizers.SGD(),
+    #         loss=FCOSLoss(2, 0.25, True),
+    #     )
+    #     model.build((None, *IMAGE_SHAPE, 3))
+    #     return model
+
     @staticmethod
     def lr_scheduler(epoch, lr):
         if epoch < 60000:
@@ -48,3 +62,4 @@ class FCOS(tf.keras.Model):
         output = self.resnet(inputs)
         pyramid = self.fpn(output[1:])
         rtn = self.head(pyramid)
+        return rtn
