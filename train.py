@@ -22,15 +22,23 @@ def preprocessing_fn(raw_feature: dict):
     input = tf.image.resize(raw_feature["image"], IMAGE_SHAPE)
 
     objects = raw_feature["objects"]
-
-    bbox = objects["bbox"]
-    bbox = tf.reshape(bbox, (1, 1, 4, -1))
-    label = objects["label"]
-    num_objects = label.shape[0]
-    label = tf.reshape(label, (1, 1, -1)) + 1
-    area = objects["area"]
-    area = tf.reshape(area, (1, 1, -1))
     image_area = IMAGE_SHAPE[0] * IMAGE_SHAPE[1]
+
+    # Append a negative sample for fallback logic
+    bbox = objects["bbox"]
+    bbox = tf.concat([
+        bbox,
+        [[0, 0, 1, 1]]
+    ], axis=0)
+    bbox = tf.reshape(bbox, (1, 1, -1, 4))
+
+    label = objects["label"] + 1
+    label = tf.concat([label, [0]], axis=0)
+    label = tf.reshape(label, (1, 1, -1))
+
+    area = objects["area"]
+    area = tf.concat([area, [image_area]], axis=0)
+    area = tf.reshape(area, (1, 1, -1))
     area = tf.cast(area / image_area, tf.float32)
 
     outputs = []
@@ -39,8 +47,8 @@ def preprocessing_fn(raw_feature: dict):
         y_coords = tf.reshape(y_coords, (width, height, 1))
 
         # (width, height, num_objects)
-        l, r = x_coords - bbox[:, :, 0, :], bbox[:, :, 2, :] - x_coords
-        t, b = y_coords - bbox[:, :, 1, :], bbox[:, :, 3, :] - y_coords
+        l, r = x_coords - bbox[:, :, :, 0], bbox[:, :, :, 2] - x_coords
+        t, b = y_coords - bbox[:, :, :, 1], bbox[:, :, :, 3] - y_coords
         dist = tf.maximum(tf.maximum(l, r), tf.maximum(t, b))
         centerness = tf.sqrt(tf.minimum(l, r) / tf.maximum(l, r)
                              * tf.minimum(t, b) / tf.maximum(t, b))
@@ -63,27 +71,38 @@ def preprocessing_fn(raw_feature: dict):
 
         # (width, height, NUM_CLASSES + 6, num_objects)
         output = tf.concat([
+            _class,
             tf.stack([centerness, l, r, t, b], axis=-2),
-            _class
         ], axis=-2)
 
         # (width, height, NUM_CLASSES + 6)
         output = tf.gather(output, idx, axis=3, batch_dims=2)
+
+        # (width * height, NUM_CLASSES + 6)
+        output = tf.reshape(output, (width * height, NUM_CLASSES + 6))
+
         outputs.append(output)
 
-    return (input, tuple(outputs))
+    # (sum of width * height, NUM_CLASSES + 6)
+    outputs = tf.concat(outputs, axis=0)
+    return (input, outputs)
 
 
-ds = tfds.load("coco", split="train", shuffle_files=True)
-ds = ds.map(preprocessing_fn)
-ds = ds.batch(16)
-
-m = FCOS.make()
-m.fit(
-    ds,
-    epochs=90000,
-    callbacks=[
-        tf.keras.callbacks.LearningRateScheduler(FCOS.lr_scheduler),
-    ]
-)
-m.save_weights("saved_weights")
+strategy = tf.distribute.MirroredStrategy()
+with strategy.scope():
+    ds = tfds.load("coco", split="train", shuffle_files=True)
+    ds = ds.map(
+        preprocessing_fn,
+        num_parallel_calls=-1,
+        deterministic=False,
+    )
+    ds = ds.batch(16)
+    m = FCOS.make()
+    m.fit(
+        ds,
+        epochs=90000,
+        callbacks=[
+            tf.keras.callbacks.LearningRateScheduler(FCOS.lr_scheduler),
+        ]
+    )
+    m.save_weights("saved_weights")

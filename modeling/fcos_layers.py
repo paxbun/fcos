@@ -1,4 +1,4 @@
-from constants import NUM_CLASSES
+from constants import NUM_CLASSES, OUTPUT_SHAPES
 
 import tensorflow as tf
 import tensorflow_addons as tfa
@@ -43,6 +43,11 @@ class FCOSHead(tf.keras.layers.Layer):
             1, (3, 3), padding="same", activation="sigmoid")
         self.reg_conv_trainable_exp = TrainableBaseExponential()
 
+        self.reshapers = [
+            tf.keras.layers.Reshape((width * height, NUM_CLASSES + 6))
+            for width, height in OUTPUT_SHAPES
+        ]
+
     def call(self, inputs):
         class_out_list = []
         centerness_out_list = []
@@ -64,12 +69,15 @@ class FCOSHead(tf.keras.layers.Layer):
         reg_out_list = self.reg_conv_trainable_exp(reg_out_list)
 
         rtn = []
-        for class_out, centerness_out, reg_out in zip(class_out_list, centerness_out_list, reg_out_list):
-            rtn.append(tf.keras.layers.concatenate(
+        for class_out, centerness_out, reg_out, reshaper in zip(class_out_list, centerness_out_list, reg_out_list, self.reshapers):
+            output = tf.keras.layers.concatenate(
                 [class_out, centerness_out, reg_out],
                 axis=-1,
-            ))
+            )
+            output = reshaper(output)
+            rtn.append(output)
 
+        rtn = tf.keras.layers.concatenate(rtn, axis=1)
         return rtn
 
 
