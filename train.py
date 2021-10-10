@@ -24,6 +24,7 @@ def preprocessing_fn(raw_feature: dict):
 
     objects = raw_feature["objects"]
     image_area = IMAGE_SHAPE[0] * IMAGE_SHAPE[1]
+    epsilon = 1e-8
 
     # Append a negative sample for fallback logic
     bbox = objects["bbox"]
@@ -43,38 +44,46 @@ def preprocessing_fn(raw_feature: dict):
     area = tf.cast(area / image_area, tf.float32)
 
     outputs = []
-    for (x_coords, y_coords), (width, height), (min_dist, max_dist) in zip(GRIDS, OUTPUT_SHAPES, MAX_DISTS):
+    for (x_coords, y_coords), (width, height), (minvalid_dist, maxvalid_dist) in zip(GRIDS, OUTPUT_SHAPES, MAX_DISTS):
         x_coords = tf.reshape(x_coords, (width, height, 1))
         y_coords = tf.reshape(y_coords, (width, height, 1))
 
         # (width, height, num_objects)
         l, r = x_coords - bbox[:, :, :, 0], bbox[:, :, :, 2] - x_coords
         t, b = y_coords - bbox[:, :, :, 1], bbox[:, :, :, 3] - y_coords
-        dist = tf.maximum(tf.maximum(l, r), tf.maximum(t, b))
-        centerness = tf.sqrt(tf.minimum(l, r) / tf.maximum(l, r)
-                             * tf.minimum(t, b) / tf.maximum(t, b))
+        min_dist = tf.minimum(tf.minimum(l, r), tf.minimum(t, b))
+        max_dist = tf.maximum(tf.maximum(l, r), tf.maximum(t, b))
+        centerness_sq = (tf.minimum(l, r) / (tf.maximum(l, r) + epsilon)
+                         * tf.minimum(t, b) / (tf.maximum(t, b) + epsilon))
 
         # (width, height, num_objects)
-        _valid = tf.logical_and(min_dist < dist, dist < max_dist)
+        valid = minvalid_dist < max_dist
+        valid = tf.logical_and(valid, max_dist <= maxvalid_dist)
+        # true if the bounding box contains the pixel
+        valid = tf.logical_and(valid, 0 < min_dist)
 
         # (width, height, num_objects)
         # Make the areas of the invalid points incredibly large
-        _area = area * (tf.cast(tf.logical_not(_valid),
+        _area = area * (tf.cast(tf.logical_not(valid),
                                 tf.float32) * 1000000 + 1)
 
         idx = tf.argmin(_area, axis=-1)
 
         # (width, height, num_objects)
-        _class = label * tf.cast(_valid, tf.int64)
+        _class = label * tf.cast(valid, tf.int64)
 
         # (width, height, NUM_CLASSES + 1, num_objects)
         _class = tf.one_hot(_class, depth=(NUM_CLASSES + 1), axis=2)
 
+        # Multiply centerness ** 2 by valid to prevent centerness from being NaN
+        centerness_sq = centerness_sq * tf.cast(valid, tf.float32)
+        centerness = tf.sqrt(centerness_sq)
+
+        # (width, height, 5, num_objects)
+        centerness_and_reg = tf.stack([centerness, l, r, t, b], axis=-2)
+
         # (width, height, NUM_CLASSES + 6, num_objects)
-        output = tf.concat([
-            _class,
-            tf.stack([centerness, l, r, t, b], axis=-2),
-        ], axis=-2)
+        output = tf.concat([_class, centerness_and_reg], axis=-2)
 
         # (width, height, NUM_CLASSES + 6)
         output = tf.gather(output, idx, axis=3, batch_dims=2)
@@ -89,21 +98,22 @@ def preprocessing_fn(raw_feature: dict):
     return (input, outputs)
 
 
-log_dir = "logs/fit/" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-ds = tfds.load("coco", split="train", shuffle_files=True)
-ds = ds.map(
-    preprocessing_fn,
-    num_parallel_calls=-1,
-    deterministic=False,
-)
-ds = ds.batch(16).take(10)
-m = FCOS.make()
-m.fit(
-    ds,
-    epochs=90000,
-    callbacks=[
-        tf.keras.callbacks.LearningRateScheduler(FCOS.lr_scheduler),
-        tf.keras.callbacks.TensorBoard(log_dir=log_dir, histogram_freq=1),
-    ]
-)
-m.save_weights("saved_weights")
+if __name__ == "__main__":
+    log_dir = "logs/fit/" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+    ds = tfds.load("coco", split="train", shuffle_files=True)
+    ds = ds.map(
+        preprocessing_fn,
+        num_parallel_calls=-1,
+        deterministic=False,
+    )
+    ds = ds.batch(16)
+    m = FCOS.make()
+    m.fit(
+        ds,
+        epochs=90000,
+        callbacks=[
+            tf.keras.callbacks.LearningRateScheduler(FCOS.lr_scheduler),
+            tf.keras.callbacks.TensorBoard(log_dir=log_dir, histogram_freq=1),
+        ]
+    )
+    m.save_weights("saved_weights")
