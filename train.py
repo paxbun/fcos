@@ -75,12 +75,15 @@ def preprocessing_fn(raw_feature: dict):
         # (width, height, NUM_CLASSES + 1, num_objects)
         _class = tf.one_hot(_class, depth=(NUM_CLASSES + 1), axis=2)
 
-        # Multiply centerness ** 2 by valid to prevent centerness from being NaN
-        centerness_sq = centerness_sq * tf.cast(valid, tf.float32)
+        # Multiply centerness_sq by valid to prevent centerness from being NaN
+        valid = tf.cast(valid, tf.float32)
+        centerness_sq = centerness_sq * valid
         centerness = tf.sqrt(centerness_sq)
 
         # (width, height, 5, num_objects)
+        valid = tf.reshape(valid, (width, height, 1, -1))
         centerness_and_reg = tf.stack([centerness, l, r, t, b], axis=-2)
+        centerness_and_reg = centerness_and_reg * valid
 
         # (width, height, NUM_CLASSES + 6, num_objects)
         output = tf.concat([_class, centerness_and_reg], axis=-2)
@@ -95,7 +98,7 @@ def preprocessing_fn(raw_feature: dict):
 
     # (sum of width * height, NUM_CLASSES + 6)
     outputs = tf.concat(outputs, axis=0)
-    return (input, outputs)
+    return (input / 255.0, outputs)
 
 
 if __name__ == "__main__":
