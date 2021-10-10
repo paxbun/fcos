@@ -3,6 +3,7 @@ from modeling.fcos import FCOS
 
 import tensorflow as tf
 import tensorflow_datasets as tfds
+import datetime
 
 
 def make_grid_from_output_shape(output_shape):
@@ -88,21 +89,21 @@ def preprocessing_fn(raw_feature: dict):
     return (input, outputs)
 
 
-strategy = tf.distribute.MirroredStrategy()
-with strategy.scope():
-    ds = tfds.load("coco", split="train", shuffle_files=True)
-    ds = ds.map(
-        preprocessing_fn,
-        num_parallel_calls=-1,
-        deterministic=False,
-    )
-    ds = ds.batch(16)
-    m = FCOS.make()
-    m.fit(
-        ds,
-        epochs=90000,
-        callbacks=[
-            tf.keras.callbacks.LearningRateScheduler(FCOS.lr_scheduler),
-        ]
-    )
-    m.save_weights("saved_weights")
+log_dir = "logs/fit/" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+ds = tfds.load("coco", split="train", shuffle_files=True)
+ds = ds.map(
+    preprocessing_fn,
+    num_parallel_calls=-1,
+    deterministic=False,
+)
+ds = ds.batch(16).take(10)
+m = FCOS.make()
+m.fit(
+    ds,
+    epochs=90000,
+    callbacks=[
+        tf.keras.callbacks.LearningRateScheduler(FCOS.lr_scheduler),
+        tf.keras.callbacks.TensorBoard(log_dir=log_dir, histogram_freq=1),
+    ]
+)
+m.save_weights("saved_weights")
