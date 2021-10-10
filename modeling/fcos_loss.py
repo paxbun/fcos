@@ -34,35 +34,34 @@ class FCOSLoss(tf.keras.losses.Loss):
         num_pixels = y_true.shape[1]
 
         focal_loss = FCOSLoss._focal_loss(
-            y_true_class, y_pred_class, self.focal_loss_gamma, self.focal_loss_alpha)
+            y_true_class, y_pred_class, self.focal_loss_gamma, self.focal_loss_alpha, self.epsilon)
         centerness_loss = FCOSLoss._centerness_loss(
-            y_true_centerness, y_pred_centerness)
+            y_true_centerness, y_pred_centerness, self.epsilon)
         iou_loss = (FCOSLoss._giou if self.use_giou else FCOSLoss._iou)(
             y_true_reg, y_pred_reg, self.epsilon)
         iou_loss = iou_loss * is_positive
-        iou_loss = -tf.math.log(iou_loss)
 
         rtn = focal_loss + centerness_loss + iou_loss
         rtn = rtn * num_pixels / tf.reshape(num_positives, (-1, 1))
 
-        return rtn
+        return iou_loss
 
     @staticmethod
-    def _focal_loss(y_true, y_pred, gamma, alpha):
+    def _focal_loss(y_true, y_pred, gamma, alpha, epsilon):
         loss_true = -y_true * \
             tf.math.pow(1 - y_pred, gamma) * \
-            tf.math.log(y_pred) * \
+            tf.math.log(y_pred + epsilon) * \
             alpha
         loss_false = (y_true - 1) * \
             tf.math.pow(y_pred, gamma) * \
-            tf.math.log(1 - y_pred) * \
+            tf.math.log(1 - y_pred + epsilon) * \
             (1 - alpha)
         return tf.reduce_sum(loss_true + loss_false, axis=-1)
 
     @staticmethod
-    def _centerness_loss(y_true, y_pred):
-        loss_true = -y_true * tf.math.log(y_pred)
-        loss_false = (y_true - 1) * tf.math.log(1 - y_pred)
+    def _centerness_loss(y_true, y_pred, epsilon):
+        loss_true = -y_true * tf.math.log(y_pred + epsilon)
+        loss_false = (y_true - 1) * tf.math.log(1 - y_pred + epsilon)
         return loss_true + loss_false
 
     @staticmethod
@@ -106,7 +105,8 @@ class FCOSLoss(tf.keras.losses.Loss):
         # GIoU = IoU - |C \ (A U B)|/|C|
         #      = IoU - (|C| - |A U B|)/|C|
         #      = IoU - 1 + |A U B|/|C|
-        return iou - 1 + union_area / (convex_area + epsilon)
+        giou = iou - 1 + union_area / (convex_area + epsilon)
+        return 1 - giou
 
     @staticmethod
     def _iou(y_true, y_pred, epsilon):
@@ -134,4 +134,5 @@ class FCOSLoss(tf.keras.losses.Loss):
         )
         intersection_area = intersection_height * intersection_width
         union_area = area_true + area_pred - intersection_area
-        return intersection_area / (union_area + epsilon)
+        iou = intersection_area / (union_area + epsilon)
+        return -tf.math.log(iou + epsilon)
