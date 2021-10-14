@@ -28,11 +28,14 @@ class FCOSHead(tf.keras.layers.Layer):
         super(FCOSHead, self).__init__(*args, **kwargs)
         self.centerness_at_reg_branch = centerness_at_reg_branch
 
-        self.conv_list = [
-            tf.keras.layers.Conv2D(
+        self.conv_list = []
+        for _ in range(4):
+            self.conv_list.append(
+                tf.keras.layers.Conv2D(
                 512, (3, 3), padding="same", activation="relu", use_bias=True, groups=2)
-            for _ in range(4)
-        ]
+            )
+            # Number of groups (32) * number of branches (2) = 64
+            self.conv_list.append(tfa.layers.GroupNormalization(64))
 
         # number of classes + negative sample class (1)
         self.class_conv = tf.keras.layers.Conv2D(
