@@ -1,4 +1,4 @@
-from constants import IMAGE_SHAPE, MAX_DISTS, OUTPUT_SHAPES, NUM_CLASSES, GRIDS
+from constants import *
 from typing import Tuple
 
 import tensorflow as tf
@@ -39,8 +39,8 @@ class FCOSPreprocessor:
             y_coords = tf.reshape(y_coords, (width, height, 1))
 
             # (width, height, num_objects + 1)
-            l, r = x_coords - bbox[:, :, :, 0], bbox[:, :, :, 1] - x_coords
-            t, b = y_coords - bbox[:, :, :, 2], bbox[:, :, :, 3] - y_coords
+            l, r = x_coords - bbox[:, :, :, LEFT], bbox[:, :, :, RIGHT] - x_coords
+            t, b = y_coords - bbox[:, :, :, TOP], bbox[:, :, :, BOTTOM] - y_coords
             min_dist = tf.minimum(tf.minimum(l, r), tf.minimum(t, b))
             max_dist = tf.maximum(tf.maximum(l, r), tf.maximum(t, b))
             centerness_sq = (tf.minimum(l, r) / (tf.maximum(l, r) + epsilon)

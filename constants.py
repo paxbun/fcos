@@ -42,3 +42,8 @@ GRIDS = [
     make_grid_from_output_shape(output_shape)
     for output_shape in OUTPUT_SHAPES
 ]
+
+LEFT = 0
+RIGHT = 1
+TOP = 2
+BOTTOM = 3
