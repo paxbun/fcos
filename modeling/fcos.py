@@ -4,6 +4,7 @@ from .fcos_layers import FeaturePyramid, FCOSHead
 from .resnet import ResNet50, ResNet101, ResNeXt32x8d, ResNeXt64x4d
 
 import tensorflow as tf
+import tensorflow_addons as tfa
 
 
 class FCOS(tf.keras.Model):
@@ -18,7 +19,7 @@ class FCOS(tf.keras.Model):
     def make(resnet: str = "ResNet50"):
         fcos = FCOS(resnet)
         fcos.compile(
-            optimizer=tf.keras.optimizers.SGD(),
+            optimizer=tfa.optimizers.SGDW(0.0001, 0.01, 0.9),
             loss=FCOSLoss(2, 0.25, True),
         )
         fcos.build((None, *IMAGE_SHAPE, 3))
@@ -39,13 +40,15 @@ class FCOS(tf.keras.Model):
     #     return model
 
     @staticmethod
-    def lr_scheduler(epoch, lr):
-        if epoch < 60000:
-            return lr
-        elif epoch < 80000:
-            return lr / 10
-        else:
-            return lr / 100
+    def make_lr_scheduler(num_batches_per_epoch):
+        def lr_scheduler(epoch, lr):
+            if epoch < 60000 / num_batches_per_epoch:
+                return lr
+            elif epoch < 80000 / num_batches_per_epoch:
+                return lr / 10
+            else:
+                return lr / 100
+        return lr_scheduler
 
     def __init__(
         self,
