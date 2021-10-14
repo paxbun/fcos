@@ -1,20 +1,7 @@
-from constants import IMAGE_SHAPE, MAX_DISTS, OUTPUT_SHAPES, NUM_CLASSES
+from constants import IMAGE_SHAPE, MAX_DISTS, OUTPUT_SHAPES, NUM_CLASSES, GRIDS
 from typing import Tuple
 
 import tensorflow as tf
-
-
-def make_grid_from_output_shape(output_shape):
-    x_unit, y_unit = 0.5 / output_shape[0], 0.5 / output_shape[1]
-    x_points = tf.linspace(x_unit, 1 - x_unit, output_shape[0])
-    y_points = tf.linspace(y_unit, 1 - y_unit, output_shape[1])
-    return tf.meshgrid(y_points, x_points)
-
-
-GRIDS = [
-    make_grid_from_output_shape(output_shape)
-    for output_shape in OUTPUT_SHAPES
-]
 
 
 class FCOSPreprocessor:
@@ -52,8 +39,8 @@ class FCOSPreprocessor:
             y_coords = tf.reshape(y_coords, (width, height, 1))
 
             # (width, height, num_objects + 1)
-            l, r = x_coords - bbox[:, :, :, 0], bbox[:, :, :, 2] - x_coords
-            t, b = y_coords - bbox[:, :, :, 1], bbox[:, :, :, 3] - y_coords
+            l, r = x_coords - bbox[:, :, :, 0], bbox[:, :, :, 1] - x_coords
+            t, b = y_coords - bbox[:, :, :, 2], bbox[:, :, :, 3] - y_coords
             min_dist = tf.minimum(tf.minimum(l, r), tf.minimum(t, b))
             max_dist = tf.maximum(tf.maximum(l, r), tf.maximum(t, b))
             centerness_sq = (tf.minimum(l, r) / (tf.maximum(l, r) + epsilon)
