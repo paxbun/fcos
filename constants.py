@@ -1,3 +1,5 @@
+import tensorflow as tf
+
 IMAGE_WIDTH = 800
 IMAGE_HEIGHT = 1024
 IMAGE_SHAPE = (IMAGE_WIDTH, IMAGE_HEIGHT)
@@ -26,4 +28,17 @@ MAX_DISTS = [
 MAX_DISTS = [
     (x / IMAGE_WIDTH, y / IMAGE_HEIGHT)
     for x, y in MAX_DISTS
+]
+
+
+def make_grid_from_output_shape(output_shape):
+    x_unit, y_unit = 0.5 / output_shape[0], 0.5 / output_shape[1]
+    x_points = tf.linspace(x_unit, 1 - x_unit, output_shape[0])
+    y_points = tf.linspace(y_unit, 1 - y_unit, output_shape[1])
+    return tf.meshgrid(y_points, x_points)
+
+
+GRIDS = [
+    make_grid_from_output_shape(output_shape)
+    for output_shape in OUTPUT_SHAPES
 ]
