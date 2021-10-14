@@ -1,6 +1,7 @@
 from constants import IMAGE_SHAPE, MAX_DISTS, OUTPUT_SHAPES, NUM_CLASSES
 from modeling.fcos import FCOS
 
+import math
 import tensorflow as tf
 import tensorflow_datasets as tfds
 import datetime
@@ -47,7 +48,7 @@ def preprocessing_fn(raw_feature: dict):
     for (x_coords, y_coords), (width, height), (minvalid_dist, maxvalid_dist) in zip(GRIDS, OUTPUT_SHAPES, MAX_DISTS):
         x_coords = tf.reshape(x_coords, (width, height, 1))
         y_coords = tf.reshape(y_coords, (width, height, 1))
-        
+
         # (width, height, num_objects + 1)
         l, r = x_coords - bbox[:, :, :, 0], bbox[:, :, :, 2] - x_coords
         t, b = y_coords - bbox[:, :, :, 1], bbox[:, :, :, 3] - y_coords
@@ -113,7 +114,7 @@ if __name__ == "__main__":
     m = FCOS.make()
     m.fit(
         ds,
-        epochs=90000,
+        epochs=int(math.ceil(90000 / len(ds))),
         callbacks=[
             tf.keras.callbacks.LearningRateScheduler(
                 FCOS.make_lr_scheduler(len(ds))),
