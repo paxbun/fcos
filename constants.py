@@ -74,3 +74,9 @@ RIGHT = 3
 
 # Number of groups in GN
 NUM_GROUPS_GN = 32
+
+# gamma in focal loss
+FOCAL_LOSS_GAMMA = 2
+
+# alpha in balanced focal loss
+FOCAL_LOSS_ALPHA = 0.25

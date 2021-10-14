@@ -1,4 +1,4 @@
-from constants import IMAGE_SHAPE
+from constants import FOCAL_LOSS_ALPHA, FOCAL_LOSS_GAMMA, IMAGE_SHAPE
 from .fcos_loss import FCOSLoss
 from .fcos_layers import FeaturePyramid, FCOSHead
 from .resnet import ResNet50, ResNet101, ResNeXt32x8d, ResNeXt64x4d
@@ -20,24 +20,10 @@ class FCOS(tf.keras.Model):
         fcos = FCOS(resnet)
         fcos.compile(
             optimizer=tfa.optimizers.SGDW(0.0001, 0.01, 0.9),
-            loss=FCOSLoss(2, 0.25, True),
+            loss=FCOSLoss(FOCAL_LOSS_GAMMA, FOCAL_LOSS_ALPHA, True),
         )
         fcos.build((None, *IMAGE_SHAPE, 3))
         return fcos
-
-    # @staticmethod
-    # def make_functional(resnet: str = "ResNet50"):
-    #     x = input = tf.keras.layers.Input((*IMAGE_SHAPE, 3))
-    #     x = FCOS._resnets[resnet]()(x)
-    #     x = FeaturePyramid()(x[1:])
-    #     x = FCOSHead()(x)
-    #     model = tf.keras.Model(input, x)
-    #     model.compile(
-    #         optimizer=tf.keras.optimizers.SGD(),
-    #         loss=FCOSLoss(2, 0.25, True),
-    #     )
-    #     model.build((None, *IMAGE_SHAPE, 3))
-    #     return model
 
     @staticmethod
     def make_lr_scheduler(num_batches_per_epoch):
