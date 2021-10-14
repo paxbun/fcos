@@ -71,3 +71,6 @@ BOTTOM = 2
 
 # Column index of distance to the right side of the box
 RIGHT = 3
+
+# Number of groups in GN
+NUM_GROUPS_GN = 32

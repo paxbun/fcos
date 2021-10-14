@@ -1,4 +1,4 @@
-from constants import NUM_CLASSES, OUTPUT_SHAPES
+from constants import NUM_CLASSES, NUM_GROUPS_GN, OUTPUT_SHAPES
 
 import tensorflow as tf
 import tensorflow_addons as tfa
@@ -35,7 +35,7 @@ class FCOSHead(tf.keras.layers.Layer):
                 512, (3, 3), padding="same", activation="relu", use_bias=True, groups=2)
             )
             # Number of groups (32) * number of branches (2) = 64
-            self.conv_list.append(tfa.layers.GroupNormalization(64))
+            self.conv_list.append(tfa.layers.GroupNormalization(NUM_GROUPS_GN * 2))
 
         # number of classes + negative sample class (1)
         self.class_conv = tf.keras.layers.Conv2D(
@@ -96,7 +96,7 @@ class FeaturePyramid(tf.keras.layers.Layer):
 
         self.lateral_conv_list = [
             tf.keras.layers.Conv2D(
-                256, (1, 1), padding="same", use_bias=False, activation=tfa.layers.GroupNormalization(32)
+                256, (1, 1), padding="same", use_bias=False, activation=tfa.layers.GroupNormalization(NUM_GROUPS_GN)
             )
             for _ in range(self.num_input_stages)
         ]
@@ -111,7 +111,7 @@ class FeaturePyramid(tf.keras.layers.Layer):
         ]
         self.final_conv_list = [
             tf.keras.layers.Conv2D(
-                256, (3, 3), padding="same", use_bias=False, activation=tfa.layers.GroupNormalization(32)
+                256, (3, 3), padding="same", use_bias=False, activation=tfa.layers.GroupNormalization(NUM_GROUPS_GN)
             )
             for _ in range(self.num_input_stages)
         ]
