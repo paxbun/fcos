@@ -56,7 +56,7 @@ def make_grid_from_output_shape(height, width):
 
 # Collection of (y, x) points for [P3, P4, ..., P7]
 GRIDS = [
-    make_grid_from_output_shape(output_shape)
+    make_grid_from_output_shape(*output_shape)
     for output_shape in OUTPUT_SHAPES
 ]
 
