@@ -44,8 +44,8 @@ class FCOSHead(tf.keras.layers.Layer):
         self.reg_conv_trainable_exp = TrainableBaseExponential()
 
         self.reshapers = [
-            tf.keras.layers.Reshape((width * height, NUM_CLASSES + 6))
-            for width, height in OUTPUT_SHAPES
+            tf.keras.layers.Reshape((height * width, NUM_CLASSES + 6))
+            for height, width in OUTPUT_SHAPES
         ]
 
     def call(self, inputs):
