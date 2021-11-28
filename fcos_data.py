@@ -96,3 +96,67 @@ class FCOSPreprocessor:
         # (sum of height * width, NUM_CLASSES + 6)
         outputs = tf.concat(outputs, axis=0)
         return (input / 255.0, outputs)
+
+
+if __name__ == "__main__":
+    import matplotlib.pyplot as plt
+    import matplotlib.patches as patches
+    import tensorflow_datasets as tfds
+
+    image_height, image_width = IMAGE_SHAPE
+
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+
+    ds = tfds.load("coco", split="train", shuffle_files=True)
+    ds = ds.map(FCOSPreprocessor())
+    input, outputs = next(iter(ds))
+
+    ax.imshow(input)
+
+    colors = list("kymcrgb")
+    color_map = {}
+
+    acc = 0
+    for height, width in OUTPUT_SHAPES:
+        length = height * width
+        begin = acc
+        end = begin + length
+        output = tf.reshape(outputs[begin:end],
+                            (height, width, NUM_CLASSES + 6))
+        for i, row in enumerate(output):
+            for j, pixel in enumerate(row):
+                center_y, center_x = (i + 0.5) / height, (j + 0.5) / width
+                left = pixel[NUM_CLASSES + 2 + LEFT]
+                top = pixel[NUM_CLASSES + 2 + TOP]
+                right = pixel[NUM_CLASSES + 2 + RIGHT]
+                bottom = pixel[NUM_CLASSES + 2 + BOTTOM]
+
+                center_x *= image_width
+                left *= image_width
+                right *= image_width
+
+                center_y *= image_height
+                top *= image_height
+                bottom *= image_height
+
+                cls = int(tf.argmax(pixel[:NUM_CLASSES + 1]))
+                if cls == 0:
+                    continue
+                else:
+                    if cls not in color_map:
+                        color_map[cls] = colors[-1]
+                        colors.pop()
+                    color = color_map[cls]
+
+                ax.add_patch(patches.Rectangle(
+                    (center_x - left, center_y - top),
+                    left + right,
+                    top + bottom,
+                    fc="none",
+                    ec=color,
+                    lw=1
+                ))
+        acc = end
+
+    fig.savefig("output.png")
