@@ -27,13 +27,13 @@ class FCOS(tf.keras.Model):
 
     @staticmethod
     def make_lr_scheduler(num_batches_per_epoch):
-        def lr_scheduler(epoch, lr):
+        def lr_scheduler(epoch, _):
             if epoch < 60000 / num_batches_per_epoch:
-                return lr
+                return 0.01
             elif epoch < 80000 / num_batches_per_epoch:
-                return lr / 10
+                return 0.001
             else:
-                return lr / 100
+                return 0.0001
         return lr_scheduler
 
     def __init__(
