@@ -44,7 +44,7 @@ class FCOSLoss(tf.keras.losses.Loss):
         rtn = focal_loss + centerness_loss + iou_loss
         rtn = rtn * num_pixels / tf.reshape(num_positives, (-1, 1))
 
-        return iou_loss
+        return rtn
 
     @staticmethod
     def _focal_loss(y_true, y_pred, gamma, alpha, epsilon):
@@ -60,6 +60,7 @@ class FCOSLoss(tf.keras.losses.Loss):
 
     @staticmethod
     def _centerness_loss(y_true, y_pred, epsilon):
+        y_pred = tf.clip_by_value(y_pred, 0., 1.)
         loss_true = -y_true * tf.math.log(y_pred + epsilon)
         loss_false = (y_true - 1) * tf.math.log(1 - y_pred + epsilon)
         return loss_true + loss_false
@@ -78,22 +79,22 @@ class FCOSLoss(tf.keras.losses.Loss):
             y_pred[:, :, BOTTOM]
         area_true = (y_true_l + y_true_r) * (y_true_t + y_true_b)
         area_pred = (y_pred_l + y_pred_r) * (y_pred_t + y_pred_b)
-        intersection_height = tf.math.minimum(
+        intersection_width = tf.math.minimum(
             y_true_l, y_pred_l
         ) + tf.math.minimum(
             y_true_r, y_pred_r
         )
-        intersection_width = tf.math.minimum(
+        intersection_height = tf.math.minimum(
             y_true_t, y_pred_t
         ) + tf.math.minimum(
             y_true_b, y_pred_b
         )
-        convex_height = tf.math.maximum(
+        convex_width = tf.math.maximum(
             y_true_l, y_pred_l
         ) + tf.math.maximum(
             y_true_r, y_pred_r
         )
-        convex_width = tf.math.maximum(
+        convex_height = tf.math.maximum(
             y_true_t, y_pred_t
         ) + tf.math.maximum(
             y_true_b, y_pred_b
@@ -111,23 +112,23 @@ class FCOSLoss(tf.keras.losses.Loss):
     @staticmethod
     def _iou(y_true, y_pred, epsilon):
         y_true_l, y_true_r, y_true_t, y_true_b = \
-            y_true[:, :, 0], \
-            y_true[:, :, 1], \
-            y_true[:, :, 2], \
-            y_true[:, :, 3]
+            y_true[:, :, LEFT], \
+            y_true[:, :, RIGHT], \
+            y_true[:, :, TOP], \
+            y_true[:, :, BOTTOM]
         y_pred_l, y_pred_r, y_pred_t, y_pred_b = \
-            y_pred[:, :, 0], \
-            y_pred[:, :, 1], \
-            y_pred[:, :, 2], \
-            y_pred[:, :, 3]
+            y_pred[:, :, LEFT], \
+            y_pred[:, :, RIGHT], \
+            y_pred[:, :, TOP], \
+            y_pred[:, :, BOTTOM]
         area_true = (y_true_l + y_true_r) * (y_true_t + y_true_b)
         area_pred = (y_pred_l + y_pred_r) * (y_pred_t + y_pred_b)
-        intersection_height = tf.math.minimum(
+        intersection_width = tf.math.minimum(
             y_true_l, y_pred_l
         ) + tf.math.minimum(
             y_true_r, y_pred_r
         )
-        intersection_width = tf.math.minimum(
+        intersection_height = tf.math.minimum(
             y_true_t, y_pred_t
         ) + tf.math.minimum(
             y_true_b, y_pred_b
