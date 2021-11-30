@@ -9,6 +9,9 @@ IMAGE_WIDTH = 1024
 # Size of the input (excluding number of channels, which is 3)
 IMAGE_SHAPE = (IMAGE_HEIGHT, IMAGE_WIDTH)
 
+# Size of an image in the original dataset
+ORIGINAL_IMAGE_SHAPE = (334, 500)
+
 # Number of classes in the COCO dataset
 NUM_CLASSES = 80
 
