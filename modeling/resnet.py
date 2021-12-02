@@ -146,10 +146,22 @@ class ResNetBase(tf.keras.layers.Layer):
     def compute_output_shape(self, input_shape: tf.TensorShape) -> tf.TensorShape:
         rtn = []
         out = self.top.compute_output_shape(input_shape)
-        for stage in self.body:
-            out = stage.compute_output_shape(out)
+        for stage in self.stages:
+            for block in stage:
+                out = block.compute_output_shape(out)
             rtn.append(out)
         return rtn
+
+class ResNetTest(ResNetBase):
+    def __init__(self, *args, **kwargs):
+        super(ResNetTest, self).__init__(
+            ResNetConfig(stages=[
+                ResNetStageConfig(256, 3),
+                ResNetStageConfig(512, 3),
+            ]),
+            *args, **kwargs
+        )
+
 
 
 class ResNet50(ResNetBase):

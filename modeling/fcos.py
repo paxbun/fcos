@@ -19,11 +19,22 @@ class FCOS(tf.keras.Model):
     def make(resnet: str = "ResNet50"):
         fcos = FCOS(resnet)
         fcos.compile(
-            optimizer=tfa.optimizers.SGDW(0.0001, 0.01, 0.9),
+            # optimizer=tfa.optimizers.SGDW(0.0001, 0.01, 0.9),
+            optimizer=tf.keras.optimizers.SGD(0.01),
             loss=FCOSLoss(FOCAL_LOSS_GAMMA, FOCAL_LOSS_ALPHA, True),
+            metrics=[FCOSLoss.FocalLoss, FCOSLoss.CenternessLoss,
+                     FCOSLoss.IoULoss, FCOSLoss.NumPositivesLoss]
         )
         fcos.build((None, *IMAGE_SHAPE, 3))
         return fcos
+
+    @staticmethod
+    def make_functional(resnet: str = "ResNet50"):
+        input = tf.keras.layers.Input((*IMAGE_SHAPE, 3))
+        output = FCOS._resnets[resnet]()(input)
+        pyramid = FeaturePyramid()(output[1:])
+        rtn = FCOSHead()(pyramid)
+        return tf.keras.Model(inputs=input, outputs=rtn)
 
     @staticmethod
     def make_lr_scheduler(num_batches_per_epoch):

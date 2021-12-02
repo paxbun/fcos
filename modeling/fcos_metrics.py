@@ -42,7 +42,6 @@ class CocoAveragePrecision(tf.keras.metrics.Metric):
         top = y_pred[:, :, NUM_CLASSES + 2 + TOP]
         right = y_pred[:, :, NUM_CLASSES + 2 + RIGHT]
         bottom = y_pred[:, :, NUM_CLASSES + 2 + BOTTOM]
-
         cls = tf.argmax(y_pred[:, :, :NUM_CLASSES + 1], axis=-1)
         centerness = y_pred[:, :, NUM_CLASSES + 1]
         score = tf.gather(y_pred, cls, axis=2, batch_dims=1) * centerness
@@ -70,33 +69,6 @@ class CocoAveragePrecision(tf.keras.metrics.Metric):
         return iou
 
     @staticmethod
-    def _perform_non_max_suppression(boxes, cls, score, nms_threshold: float):
-        # boxes: (None, sum of height * width, 4)
-        # cls  : (None, sum of height * width)
-        # score: (None, sum of height * width)
-
-        def extend(value):
-            return tf.expand_dims(value, 1), tf.expand_dims(value, 2)
-
-        boxes_1, boxes_2 = extend(boxes)
-        iou_cond = CocoAveragePrecision._iou(
-            boxes_1, boxes_2, 1e-8) > nms_threshold
-
-        cls_1, cls_2 = extend(cls)
-        cls_cond = tf.equal(cls_1, cls_2)
-
-        score_1, score_2 = extend(score)
-        score_cond = tf.less(score_1, score_2)
-
-        # (None, sum of height * width, sum of height * width)
-        discard = tf.logical_and(iou_cond, cls_cond)
-        discard = tf.logical_and(discard, score_cond)
-
-        # (None, sum of height * width)
-        discard = tf.reduce_any(discard, axis=1)
-        return discard
-
-    @staticmethod
     def _check_box_scale(boxes, scale: Optional[Literal["small", "medium", "large"]]) -> bool:
         # boxes: (None, sum of height * width, 1, 4)
         image_height, image_width = ORIGINAL_IMAGE_SHAPE
@@ -117,8 +89,11 @@ class CocoAveragePrecision(tf.keras.metrics.Metric):
     def update_state(self, y_true, y_pred, sample_weight=None):
         pred_boxes, pred_cls, pred_score = CocoAveragePrecision._get_boxes_from_prediction(
             y_pred)
+        
         pred_nms = CocoAveragePrecision._perform_non_max_suppression(
             pred_boxes, pred_cls, pred_score, self.config.nms_threshold)
+
+        tf.image.non
 
         pred_boxes = tf.expand_dims(pred_boxes, 1)
         pred_cls = tf.expand_dims(pred_cls, 1)

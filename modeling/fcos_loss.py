@@ -2,8 +2,56 @@ from constants import *
 
 import tensorflow as tf
 
-
 class FCOSLoss(tf.keras.losses.Loss):
+
+    @staticmethod
+    def _split(y):
+        return y[:, :, :(NUM_CLASSES + 1)], y[:, :, NUM_CLASSES + 1], y[:, :, -4:]
+
+    @staticmethod
+    def IoULoss(y_true, y_pred):
+        y_true_class, y_true_centerness, y_true_reg = FCOSLoss._split(y_true)
+        y_pred_class, y_pred_centerness, y_pred_reg = FCOSLoss._split(y_pred)
+
+        is_positive = 1 - y_true_class[:, :, 0]
+
+        iou_loss = FCOSLoss._giou(y_true_reg, y_pred_reg, 1e-8)
+        iou_loss = iou_loss * is_positive
+
+        return iou_loss
+
+    @staticmethod
+    def FocalLoss(y_true, y_pred):
+        y_true_class, y_true_centerness, y_true_reg = FCOSLoss._split(y_true)
+        y_pred_class, y_pred_centerness, y_pred_reg = FCOSLoss._split(y_pred)
+
+        focal_loss = FCOSLoss._focal_loss(
+            y_true_class, y_pred_class, FOCAL_LOSS_GAMMA, FOCAL_LOSS_ALPHA, 1e-8)
+        
+        return focal_loss
+
+    @staticmethod
+    def CenternessLoss(y_true, y_pred):
+        y_true_class, y_true_centerness, y_true_reg = FCOSLoss._split(y_true)
+        y_pred_class, y_pred_centerness, y_pred_reg = FCOSLoss._split(y_pred)
+
+        centerness_loss = FCOSLoss._centerness_loss(
+            y_true_centerness, y_pred_centerness, 1e-8)
+        
+        return centerness_loss
+
+
+    @staticmethod
+    def NumPositivesLoss(y_true, y_pred):
+        y_true_class, y_true_centerness, y_true_reg = FCOSLoss._split(y_true)
+        y_pred_class, y_pred_centerness, y_pred_reg = FCOSLoss._split(y_pred)
+
+        is_positive = 1 - y_true_class[:, :, 0]
+        num_positives = tf.reduce_sum(is_positive, axis=1)
+        num_positives = tf.maximum(num_positives, 1.)
+
+        return num_positives
+
     def __init__(
         self,
         focal_loss_gamma: int,
@@ -31,6 +79,7 @@ class FCOSLoss(tf.keras.losses.Loss):
 
         is_positive = 1 - y_true_class[:, :, 0]
         num_positives = tf.reduce_sum(is_positive, axis=1)
+        num_positives = tf.maximum(num_positives, 1.)
         num_pixels = y_true.shape[1]
 
         focal_loss = FCOSLoss._focal_loss(
@@ -42,7 +91,7 @@ class FCOSLoss(tf.keras.losses.Loss):
         iou_loss = iou_loss * is_positive
 
         rtn = focal_loss + centerness_loss + iou_loss
-        rtn = rtn * num_pixels / tf.reshape(num_positives, (-1, 1))
+        # rtn = rtn * num_pixels / tf.reshape(num_positives, (-1, 1))
 
         return rtn
 
