@@ -56,9 +56,9 @@ def main(_):
     output = tf.keras.layers.Dense(10, activation="softmax")(output)
     model = tf.keras.models.Model(inputs=input, outputs=output)
     model.compile(
-        # optimizer=tf.keras.optimizers.Adam(0.01),
+        optimizer=tf.keras.optimizers.Adam(0.001),
         # optimizer=tf.keras.optimizers.SGD(0.1, 0.9),
-        optimizer=tf.keras.optimizers.SGD(0.01),
+        # optimizer=tf.keras.optimizers.SGD(0.01),
         loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
         metrics=[tf.keras.metrics.SparseCategoricalAccuracy()],
     )
